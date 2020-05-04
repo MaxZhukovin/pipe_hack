@@ -210,18 +210,16 @@ public:
 	}
 	
 	//-------------------------------------------------------------
-	bool ReadMessage(T& Message)
+	bool ReadMessage(char* Message, size_t n)
 	{
-		DWORD NBytesRead;
 
 		if (IsOpen())
 		{
 
-
-			if (ReadFile(hPipe, (LPVOID)(&Message), sizeof(T), &NBytesRead, &Overl) == TRUE){
+			if (ReadFile(hPipe, Message, n, NULL, &Overl) == TRUE){
 				CanCloseFlag = true;
 
-				PipeCurOperState = NBytesRead == sizeof(T) ? PIPE_READ_SUCCESS : PIPE_READ_PART;
+				PipeCurOperState = PIPE_READ_SUCCESS; //sizeof(T) ? PIPE_READ_SUCCESS : PIPE_READ_PART;
 				fPendingIOComplete = false;
 				return true;
 			}
@@ -281,17 +279,16 @@ public:
 	}
 
 	//-------------------------------------------------------------
-	bool WriteMessage(T& Message)
+	bool WriteMessage(char* Message)
 	{
-		CHAR Buffer[4096];
-		if (WriteFile(hPipe, (LPVOID)(&Message), sizeof(Message), NULL, 0) == 0){
+		if (WriteFile(hPipe, Message, strlen(Message), NULL, 0) == 0){
 
 			if (GetLastError() != ERROR_IO_PENDING)
 				printf("WriteFile() failed with error %d\n", GetLastError());
 
 		}
 
-		return 1;
+		return true;
 	}
 
 };

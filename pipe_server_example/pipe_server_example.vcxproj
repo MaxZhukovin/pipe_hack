@@ -126,6 +126,7 @@
     <ClInclude Include="list.h" />
     <ClInclude Include="PerPipeStruct.h" />
     <ClInclude Include="PipeServer.h" />
+    <ClInclude Include="Server.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="test.cpp" />
