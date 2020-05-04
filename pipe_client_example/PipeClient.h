@@ -90,13 +90,11 @@ public:
 	}
 
 	//------------------------------------------------------------------
-	bool WriteMessage(T& Message)
+	bool WriteMessage(char* Message)
 	{
 		if (IsPipeConnected())
-		{
-			DWORD NBWr;
-			return WriteFile(hPipe, (LPVOID)(&Message), sizeof(Message), &NBWr, NULL) == TRUE;
-		}
+			return WriteFile(hPipe, Message, strlen(Message), NULL, NULL) == TRUE;
+
 		return false;
 	}
 
@@ -105,14 +103,12 @@ public:
 		return hPipe != INVALID_HANDLE_VALUE;
 	}
 
-	bool ReadMessage(T& Message)
+	bool ReadMessage(char* Message, size_t n)
 	{
-		DWORD NBytesRead;
-
 		if (IsPipeConnected())
 		{
 
-			if (ReadFile(hPipe, (LPVOID)(&Message), sizeof(T), &NBytesRead, &Overl) == TRUE)
+			if (ReadFile(hPipe, Message, n, NULL, &Overl) == TRUE)		
 				return true;
 			else
 				printf("ReadMessage() failed with error %d\n", GetLastError());

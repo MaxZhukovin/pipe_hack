@@ -14,31 +14,30 @@
 
 int main()
 {
-	unsigned StartVal, EndVal, Divider;
-
+	
 	SetConsoleOutputCP(1251);
 
-	printf("¬ведите начальное значение: ");
-	scanf("%u", &StartVal);
+	CPipeClient<char[]> PC;
+	char* ServerName = new char[MAX_PATH], * PipeName = new char[MAX_PATH],* StartVal = new char[100];
 
-	CPipeClient<unsigned> PC;
-	char* ServerName = new char[MAX_PATH], * PipeName = new char[MAX_PATH];
+	printf("¬ведите начальное значение: ");
+	std::cin >> StartVal;
+
 	printf("¬ведите им€ сервера (. - дл€ локального компьютера): ");
-	scanf("%s", ServerName);
+	std::cin >> ServerName;
+
+
 	strcat(strcat(strcpy(PipeName, PIPE_NAME_PREFIX), ServerName), PIPE_NAME);
+
 
 	if (PC.ConnectPipe(PipeName))
 	{
 
 		if (PC.WriteMessage(StartVal))
 		{
-			
-			if (!PC.WriteMessage(StartVal))
-				printf("ќшибка записи в именованный канал!\n");
+			char Message[100] = { 0 };
 
-
-			unsigned Message = 0;
-			if (PC.ReadMessage(Message))			
+			if (PC.ReadMessage(Message, sizeof(Message)))
 				std::cout << Message << std::endl;
 			else
 				printf("ќшибка чтени€!\n");
