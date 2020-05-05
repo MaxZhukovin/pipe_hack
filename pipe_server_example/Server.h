@@ -6,6 +6,7 @@
 
 #include "PipeServer.h"
 #include "PerPipeStruct.h"
+#include "list.h"
 
 #define MAX_PIPE_INST	2
 
@@ -14,24 +15,28 @@ class server {
 private:
 	HANDLE hEvents[MAX_PIPE_INST];
 
-	PerPipeStruct<unsigned> PipeInfo[MAX_PIPE_INST];
+	PerPipeStruct processing[MAX_PIPE_INST];
 	CPipeServer<char[]> Pipes[MAX_PIPE_INST];
 
-	char answer;
 	DWORD PipeNumber, NBytesRead;
 
-	char inputMessage[100] = {0};
+	
 	int PipesConnect = 0;
 
+	bool is_init;
+
 public:
-	server() = delete;
 
-	server(char PIPE_NAME[]) {
-
-		answer = '\0';
-		PipeNumber = 0; 
+	server() {
+		is_init = false;
+		PipeNumber = 0;
 		NBytesRead = 0;
-		//inputMessage ;
+	}
+
+	bool init(char PIPE_NAME[]) {
+
+		if (is_init)
+			return false;
 
 		for (int i = 0; i < MAX_PIPE_INST; i++) {
 
@@ -43,9 +48,12 @@ public:
 				for (i--; i >= 0; i--)
 					CloseHandle(hEvents[i]);
 
-				cout << "Ошибка создания экземпляров именованного канала " << PIPE_NAME << endl;
+				return false;
 			}
 		}
+
+		is_init = true;
+		return true;
 	}
 
 	~server() {
@@ -54,101 +62,85 @@ public:
 			CloseHandle(hEvents[i]);
 	}
 
-	void run_kernel() {
-		cout << "Ожидание подключения клиентов..." << endl;
+	void run_kernel( bool(*should_i_continue)(void), void(*pipe_error)(void) ) {
+	
+		if (!is_init)
+			return;
 
 		do {
-			PipeNumber = WaitForMultipleObjects(MAX_PIPE_INST, hEvents, FALSE, 500) - WAIT_OBJECT_0;
+
+			PipeNumber = WaitForMultipleObjects(MAX_PIPE_INST, hEvents, FALSE, 1000) - WAIT_OBJECT_0;
 
 			if (PipeNumber > MAX_PIPE_INST)
 				continue;
+
+			check_task_list();
 
 			if (!Pipes[PipeNumber].GetIOComplete())
 				Pipes[PipeNumber].GetPendingResult(NBytesRead);
 
 			if (!Pipes[PipeNumber].GetIOComplete())
-				break;
+				continue;
+
 
 			switch (Pipes[PipeNumber].GetState()) {
 
 				case PIPE_ERROR:
+
 					pipe_error();
 					break;
 
 				case PIPE_CONNECTED:
-					pipe_connected();
+					
+					if (!pipe_connected())
+						pipe_error();
+
 					break;
 
 				case PIPE_LOST_CONNECT:
 
 					pipe_lost_connect();
 					break;
+
 			}
 
-
-
-
-			/*if (!should_i_continue())
-				break;*/
+			if (PipesConnect == 0) {
+				/*if (!should_i_continue())
+					break;*/
+			}
 
 		} while (1);
 	}
 
 private: 
 
-	bool should_i_continue() {
-		if (PipesConnect == 0) {
 
-			cout << "Все клиенты отключены! Продолжить работу (Y или y - да / любая другая клавиша - нет)? ";
-			cin >> answer;
+	bool pipe_connected() {
 
-			if (answer != 'Y' && answer != 'y')
-				return 0;
-
-			cout << "Ожидание подключения клиентов..." << endl;
-		}
-
-		return 1;
-	}
-
-	void pipe_error() {
-		cout << "Ошибка при работе с каналом! Производится принудительное отсоединение клиента (код ошибки: " << GetLastError() << ")!" << endl;
-
-	}
-
-	void pipe_connected() {
-		if (Pipes[PipeNumber].GetOperState() == PIPE_JUST_CONNECTED) {
-			cout << "Just connected" << endl;
+		if (Pipes[PipeNumber].GetOperState() == PIPE_JUST_CONNECTED) 
 			PipesConnect++;
+
+		char inputMessage[100] = { 0 };
+
+		if (!Pipes[PipeNumber].ReadMessage(inputMessage, sizeof(inputMessage))) 
+			return false;
+
+		if (Pipes[PipeNumber].GetOperState() != PIPE_READ_SUCCESS)
+			return false;
+			
+		if (!processing[PipeNumber].check_value(inputMessage)) {
+			Pipes[PipeNumber].set_waiting();
+			return true;
 		}
-
-		if (Pipes[PipeNumber].ReadMessage(inputMessage, sizeof(inputMessage))) {
-
-			switch (Pipes[PipeNumber].GetOperState()) {
-
-			case PIPE_READ_PART:
-				Pipes[PipeNumber].ReadMessage(inputMessage, sizeof(inputMessage));
-				cout << "Reading data part" << endl;
-				break;
-
-			case PIPE_READ_SUCCESS:
-				cout << "Sending data" << endl;
 				
-				Pipes[PipeNumber].WriteMessage(inputMessage);
-				break;
+		if (!Pipes[PipeNumber].WriteMessage((char*)"1"))
+			return false;
 
-			case PIPE_OPERATION_ERROR:
-				cout << "Ошибка при чтении данных из канала (код ошибки: " << GetLastError() << ")!" << endl;
-				break;
-
-			}
-
-		}
+		pipe_lost_connect();
+		return true;
 	}
 
-	bool pipe_lost_connect() {
-		cout << "Lost connect" << endl;
-		PipeInfo[PipeNumber].ClearData();
+	void pipe_lost_connect() {
 
 		if (PipesConnect > 0)
 			PipesConnect--;
@@ -156,15 +148,23 @@ private:
 		Pipes[PipeNumber].DisconnectClient();
 		Pipes[PipeNumber].WaitClient();
 
-		if (Pipes[PipeNumber].CanClose() == false) {
-			cout << "В канал не было передано никаких данных со стороны клиента. Повторить попытку чтения данных Y или y - да / любая другая клавиша - нет)?" << endl;
-			cin >> answer;
+	}
 
-			if (answer == 'Y' || answer == 'y')
-				return true;
+	void check_task_list() {
+		for (int i = 0; i < MAX_PIPE_INST; i++){
+		
+			if (Pipes[PipeNumber].GetState() != PIPE_WAIT_SENDING)
+				continue;
+
+
+			if (Pipes[PipeNumber].elapsed_time() > processing[i].get_delay())
+			{
+				Pipes[PipeNumber].WriteMessage((char*)"0");
+				pipe_lost_connect();
+			}
+
 		}
-
-		return false;
+		 
 	}
 
 };

@@ -163,7 +163,8 @@ public:
 
 	Iterator()
 	{
-		Head = Tail = CurPos = NULL; //конструктор
+		Head = Tail = NULL; //конструктор
+		CurPos = NULL;
 	}
 	Iterator(Iterator& It)
 	{

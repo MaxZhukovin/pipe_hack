@@ -1,46 +1,48 @@
 #ifndef PER_PIPE_STRUCT_INCLUDE
 #define PER_PIPE_STRUCT_INCLUDE
 
-#include "list.h"
+#include <list>
 #include "iostream"
 
 #define	NELEM	3
 
 using namespace std;
 
-template <class T> 
+
 class PerPipeStruct
 {
 
 private:
 
-	T ControlVals[NELEM];
-	unsigned ControlInd;
-	TList<T> List;
+	unsigned delay; //for current login
+	//list<l_p>		//list for login and password 
 
 public:
 
-	PerPipeStruct()
-	{
-		ClearData();
-	}
 
-	void ReadVal(T Val)
+	bool check_value(char* Val)
 	{
-		if (ControlInd < NELEM)
-			ControlVals[ControlInd++] = Val;
-		else
-			List.AddAfterTail(Val);
+
+		//parsing input string and checking password
+
+		//if password is not ok
+		if (*Val == '1') {
+
+			delay = 3000;
+			return false;
+		}
+		
+		//password is ok 
 		std::cout << "value is -> " << Val <<endl;
+		return true;
 	}
 
-	void ClearData()
-	{
-		for (ControlInd = 0; ControlInd < NELEM; ControlInd++)
-			ControlVals[ControlInd] = 0;
-		ControlInd = 0;
-		List.DelAllElem();
+
+	unsigned get_delay() {
+		return delay;
 	}
+
+
 
 };
 #endif

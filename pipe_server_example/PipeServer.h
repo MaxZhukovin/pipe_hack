@@ -14,6 +14,7 @@
 
 #define	PIPE_READ_SUCCESS			12
 #define	PIPE_READ_PART				13
+#define PIPE_WAIT_SENDING			14
 
 #define DEF_BUF_SIZE				4096
 #define DEF_WAIT_TIME				20000
@@ -41,6 +42,7 @@ private:
 	PSECURITY_DESCRIPTOR pSD;
 
 	//-----------------------
+	unsigned arrival_time;
 
 private:
 
@@ -87,6 +89,7 @@ public:
 		Overl.hEvent = NULL;
 		CanCloseFlag = false;
 		pSD = NULL;
+		arrival_time = 0;
 	}
 
 	~CPipeServer()
@@ -215,12 +218,15 @@ public:
 
 		if (IsOpen())
 		{
+			*Message = { 0 };
 
 			if (ReadFile(hPipe, Message, n, NULL, &Overl) == TRUE){
 				CanCloseFlag = true;
 
 				PipeCurOperState = PIPE_READ_SUCCESS; //sizeof(T) ? PIPE_READ_SUCCESS : PIPE_READ_PART;
 				fPendingIOComplete = false;
+				arrival_time = GetTickCount();
+
 				return true;
 			}
 			else
@@ -281,16 +287,24 @@ public:
 	//-------------------------------------------------------------
 	bool WriteMessage(char* Message)
 	{
-		if (WriteFile(hPipe, Message, strlen(Message), NULL, 0) == 0){
 
-			if (GetLastError() != ERROR_IO_PENDING)
-				printf("WriteFile() failed with error %d\n", GetLastError());
-
-		}
+		if (WriteFile(hPipe, Message, strlen(Message), NULL, 0) == 0)
+			return false;
 
 		return true;
 	}
 
+
+	void set_waiting() {
+		this->PipeState = PIPE_WAIT_SENDING;
+	}
+	
+	unsigned elapsed_time() {
+		if (arrival_time )
+			return GetTickCount() - arrival_time;
+
+		return 0;
+	}
 };
 
 #endif
