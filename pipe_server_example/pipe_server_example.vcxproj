@@ -124,6 +124,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="list.h" />
+    <ClInclude Include="list_maker.h" />
     <ClInclude Include="PerPipeStruct.h" />
     <ClInclude Include="PipeServer.h" />
     <ClInclude Include="Server.h" />

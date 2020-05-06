@@ -43,6 +43,7 @@ private:
 
 	//-----------------------
 	unsigned arrival_time;
+	unsigned delay;
 
 private:
 
@@ -90,6 +91,7 @@ public:
 		CanCloseFlag = false;
 		pSD = NULL;
 		arrival_time = 0;
+		delay = 0;
 	}
 
 	~CPipeServer()
@@ -295,15 +297,17 @@ public:
 	}
 
 
-	void set_waiting() {
+	void set_waiting(unsigned delay) {
 		this->PipeState = PIPE_WAIT_SENDING;
+		this->delay = delay;
 	}
 	
-	unsigned elapsed_time() {
-		if (arrival_time )
-			return GetTickCount() - arrival_time;
+	bool ready_to_send() {
 
-		return 0;
+		if (arrival_time)
+			return GetTickCount() - arrival_time > delay;
+
+		return true;
 	}
 };
 

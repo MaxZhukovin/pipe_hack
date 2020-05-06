@@ -1,5 +1,8 @@
+#define _CRT_SECURE_NO_WARNINGS
 
-#include"Server.h"
+
+#include "list_maker.h"
+#include "Server.h"
 using namespace std;
 
 bool should_i_continue() {
@@ -28,12 +31,13 @@ int main()
 
 
 	char PIPE_NAME[] = "\\\\.\\pipe\\pipe_example";
-
+	char file_name[] = "C:\\Users\\HP\\Desktop\\l_p.txt";
 	SetConsoleOutputCP(1251);
 
+	auto list = Get_list(file_name);
 
 
-	server server;
+	server server(move(list));
 
 	if (!server.init(PIPE_NAME))
 		cout << "Ошибка создания экземпляров именованного канала " << PIPE_NAME << endl;
