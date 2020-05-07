@@ -34,10 +34,14 @@ int main()
 	char file_name[] = "C:\\Users\\HP\\Desktop\\l_p.txt";
 	SetConsoleOutputCP(1251);
 
-	auto list = Get_list(file_name);
+	list<l_p> list;
+	if (!Get_list(file_name, list)) {
+		cout << "Ошибка при работе с файлом " << endl;
+		return 0;
+	}
 
 
-	server server(move(list));
+	server server(list, false);
 
 	if (!server.init(PIPE_NAME))
 		cout << "Ошибка создания экземпляров именованного канала " << PIPE_NAME << endl;

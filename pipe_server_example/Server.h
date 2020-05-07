@@ -24,15 +24,18 @@ private:
 
 	bool is_init;
 
+	bool protected_mode;
+
 public:
 
-	server(list<l_p> input_list):
-		processing(move(input_list))
+	server(list<l_p> &input_list, bool protected_mode):
+		processing(input_list)
 	{
 		is_init = false;
 		PipeNumber = 0;
 		NBytesRead = 0;
 		PipesConnect = 0;
+		this->protected_mode = protected_mode;
 	}
 
 	bool init(char PIPE_NAME[]) {
@@ -67,18 +70,21 @@ public:
 		}
 	}
 
-	void run_kernel( bool(*should_i_continue)(void), void(*pipe_error)(void) ) {
+	void run_kernel( bool(*should_i_continue)(void), void(*pipe_error)(void)) {
 	
 		if (!is_init)
 			return;
 
+		unsigned waiting_for_connect = INFINITE;
+		if (protected_mode)
+			waiting_for_connect = 100;
+
 		do {
 
-			PipeNumber = WaitForMultipleObjects(MAX_PIPE_INST, hEvents, FALSE, 100) - WAIT_OBJECT_0;
-			
-			//std::cout << PipeNumber<<endl;
+			PipeNumber = WaitForMultipleObjects(MAX_PIPE_INST, hEvents, FALSE, waiting_for_connect) - WAIT_OBJECT_0;
 
-			check_awaiting();
+			if (protected_mode)
+				check_awaiting();
 
 			if (PipeNumber > MAX_PIPE_INST)
 				continue;
@@ -135,17 +141,17 @@ private:
 		if (Pipes[PipeNumber].GetOperState() != PIPE_READ_SUCCESS)
 			return false;
 			
-		unsigned delay = processing.check_value(inputMessage);
-		if (delay != 0) {
-			Pipes[PipeNumber].set_waiting(delay);
+		char mess_for_sending[100] = {0};
+		unsigned delay = processing.check_account(inputMessage, mess_for_sending);
+		if (delay != 0 && protected_mode) {
+			Pipes[PipeNumber].set_waiting(delay, mess_for_sending);
 
-			if (!ResetEvent(hEvents[PipeNumber]))
-				std::cout << "error while reseting event" << GetLastError << endl;
+			ResetEvent(hEvents[PipeNumber]);
 
 			return true;
 		}
 				
-		if (!Pipes[PipeNumber].WriteMessage((char*)"1"))
+		if (!Pipes[PipeNumber].WriteMessage(mess_for_sending))
 			return false;
 
 		pipe_disconnect(PipeNumber);
@@ -168,12 +174,8 @@ private:
 			if (Pipes[i].GetState() != PIPE_WAIT_SENDING)
 				continue;
 
-
-			if (Pipes[i].ready_to_send())
-			{
-				Pipes[i].WriteMessage((char*)"0");
+			if (Pipes[i].send_if_ready())
 				pipe_disconnect(i);
-			}
 
 		}
 		 

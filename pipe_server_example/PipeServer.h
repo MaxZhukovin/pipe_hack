@@ -45,6 +45,8 @@ private:
 	unsigned arrival_time;
 	unsigned delay;
 
+	char message_for_sending[100];
+
 private:
 
 	void CheckError()
@@ -90,8 +92,10 @@ public:
 		Overl.hEvent = NULL;
 		CanCloseFlag = false;
 		pSD = NULL;
+
 		arrival_time = 0;
 		delay = 0;
+		*message_for_sending = { 0 };
 	}
 
 	~CPipeServer()
@@ -297,17 +301,27 @@ public:
 	}
 
 
-	void set_waiting(unsigned delay) {
+	void set_waiting(unsigned delay, char* mess_for_sending) {
 		this->PipeState = PIPE_WAIT_SENDING;
 		this->delay = delay;
+		*this->message_for_sending = *mess_for_sending;
 	}
 	
-	bool ready_to_send() {
 
-		if (arrival_time)
-			return GetTickCount() - arrival_time > delay;
+	bool send_if_ready() {
 
-		return true;
+		if (!arrival_time)
+			return false;
+
+		if (GetTickCount() - arrival_time > delay) {
+			WriteMessage(message_for_sending);
+
+			arrival_time = 0;
+			delay = 0;
+			*message_for_sending = { 0 };
+			return true;
+		}
+		return false;
 	}
 };
 

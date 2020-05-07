@@ -1,7 +1,7 @@
 #pragma once
 #include <fstream>
 #include <list>
-
+#include <iostream>
 
 using namespace std;
 
@@ -22,29 +22,34 @@ public:
 
 };
 
-list <l_p> Get_list(char* path) {
+bool Get_list(char* path, list <l_p> &list) {
 
 	std::ifstream infile;
-	infile.open(path, std::fstream::in | std::fstream::out | std::fstream::app);
+
+	infile.open(path, std::fstream::in);
+	if (!infile.is_open())
+		return false;
 
 	unsigned max_password_length;
 	unsigned max_login_length;
 		
-	list<l_p> list;
 
-	infile >> max_password_length >> max_login_length;
+	infile >> max_login_length >> max_password_length;
 
 
 	while (1)
 	{
 		string a, b;
-		if (!(infile >> a >> b)) { break; } // error
-				
+		if (!(infile >> a >> b)) {break;} 
+			
+		if (a.size() > max_login_length || b.size() > max_password_length)
+			return false;
+
 		list.push_back(l_p(a,b));
 	}
 
-
-	return list;
+	infile.close();
+	return true;
 }
 
 
