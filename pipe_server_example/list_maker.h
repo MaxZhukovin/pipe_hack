@@ -20,6 +20,16 @@ public:
 		delay = 0;
 	}
 
+	l_p operator= (l_p right) {
+		this->delay = right.delay;
+		this->Login = right.Login;
+		this->Password = right.Password;
+
+		return *this;
+	}
+
+	l_p& operator*() { return *this; }
+
 };
 
 bool Get_list(char* path, list <l_p> &list) {

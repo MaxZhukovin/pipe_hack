@@ -133,30 +133,48 @@ private:
 		if (Pipes[PipeNumber].GetOperState() == PIPE_JUST_CONNECTED) 
 			PipesConnect++;
 
-		char inputMessage[100] = { 0 };
+		string inputMessage;
 
-		if (!Pipes[PipeNumber].ReadMessage(inputMessage, sizeof(inputMessage))) 
+		if (!Pipes[PipeNumber].ReadMessage(inputMessage)) 
 			return false;
 
 		if (Pipes[PipeNumber].GetOperState() != PIPE_READ_SUCCESS)
 			return false;
 			
-		char mess_for_sending[100] = {0};
-		unsigned delay = processing.check_account(inputMessage, mess_for_sending);
-		if (delay != 0 && protected_mode) {
-			Pipes[PipeNumber].set_waiting(delay, mess_for_sending);
 
-			ResetEvent(hEvents[PipeNumber]);
+		l_p* account = NULL;
+		bool res = processing.check_account(inputMessage, account);
 
-			return true;
-		}
+		if (!res)
+			return process_wrong_account(account, PipeNumber);
 				
-		if (!Pipes[PipeNumber].WriteMessage(mess_for_sending))
+		return send((char*)"1", PipeNumber);
+		
+	}
+
+	bool process_wrong_account(l_p* account, unsigned PipeNumber) {
+		if(!account)
+			return send((char*)"2", PipeNumber);
+
+		if (!protected_mode) {
+			return send((char*)"0", PipeNumber);
+		}
+
+		//set waiting (for protected_mode)
+		Pipes[PipeNumber].set_waiting(account);
+		ResetEvent(hEvents[PipeNumber]);
+		return true;
+	}
+
+	bool send(char* message, unsigned PipeNumber) {
+		if (!Pipes[PipeNumber].WriteMessage(message))
 			return false;
 
 		pipe_disconnect(PipeNumber);
 		return true;
 	}
+
+
 
 	void pipe_disconnect(unsigned num_of_pipe) {
 
@@ -174,8 +192,10 @@ private:
 			if (Pipes[i].GetState() != PIPE_WAIT_SENDING)
 				continue;
 
-			if (Pipes[i].send_if_ready())
+			if (Pipes[i].ready_to_send()) {
+				send((char*)"0", i);
 				pipe_disconnect(i);
+			}
 
 		}
 		 

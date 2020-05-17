@@ -29,7 +29,6 @@ void pipe_error() {
 int main()
 {
 
-
 	char PIPE_NAME[] = "\\\\.\\pipe\\pipe_example";
 	char file_name[] = "C:\\Users\\HP\\Desktop\\l_p.txt";
 	SetConsoleOutputCP(1251);
@@ -41,7 +40,7 @@ int main()
 	}
 
 
-	server server(list, false);
+	server server(list, true);
 
 	if (!server.init(PIPE_NAME))
 		cout << "Ошибка создания экземпляров именованного канала " << PIPE_NAME << endl;

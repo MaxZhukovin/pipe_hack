@@ -19,6 +19,8 @@
 #define DEF_BUF_SIZE				4096
 #define DEF_WAIT_TIME				20000
 
+#define buf_size					4096
+
 //------------------------------------------------------------------
 
 template <class T> 
@@ -43,9 +45,7 @@ private:
 
 	//-----------------------
 	unsigned arrival_time;
-	unsigned delay;
-
-	char message_for_sending[100];
+	l_p* account;
 
 private:
 
@@ -94,8 +94,7 @@ public:
 		pSD = NULL;
 
 		arrival_time = 0;
-		delay = 0;
-		*message_for_sending = { 0 };
+		account = NULL;
 	}
 
 	~CPipeServer()
@@ -219,17 +218,16 @@ public:
 	}
 	
 	//-------------------------------------------------------------
-	bool ReadMessage(char* Message, size_t n)
+	bool ReadMessage(string &Message)
 	{
 
 		if (IsOpen())
 		{
-			*Message = { 0 };
 
-			if (ReadFile(hPipe, Message, n, NULL, &Overl) == TRUE){
+			if (get_message(Message)){
 				CanCloseFlag = true;
 
-				PipeCurOperState = PIPE_READ_SUCCESS; //sizeof(T) ? PIPE_READ_SUCCESS : PIPE_READ_PART;
+				PipeCurOperState = PIPE_READ_SUCCESS; 
 				fPendingIOComplete = false;
 				arrival_time = GetTickCount();
 
@@ -241,7 +239,48 @@ public:
 
 		return false;
 	}
+private:
+	bool get_message(string &msg) {
 
+		
+		DWORD read_bytes = 0;
+		char input[buf_size + 5] = {0}; //with zero symbol
+
+		if (ReadFile(hPipe, input, buf_size + 4, &read_bytes, &Overl) != TRUE)
+			return false;
+
+		int mess_size = int((unsigned char)(input[0])  |
+							(unsigned char)(input[1]) << 8 |
+							(unsigned char)(input[2]) << 16 |
+							(unsigned char)(input[3]) <<24);
+		
+		//---------------------------------------
+
+		msg = input+4; //without length
+
+		if (mess_size + 4 <= read_bytes)
+			return true;
+
+
+		//if read part
+		while (read_bytes < mess_size + 4) {
+
+			*input = { 0 };
+			DWORD next_bytes = 0;
+			if (ReadFile(hPipe, input, mess_size + 4 - read_bytes, &next_bytes, &Overl) != TRUE)
+				return false;
+
+			read_bytes += next_bytes;
+			msg += input;
+		}
+	
+
+		return true;
+	}
+
+
+
+public:
 	bool GetPendingResult(DWORD& NBytesRead)
 	{
 		if (IsOpen() && GetOverlappedResult(hPipe, &Overl, &NBytesRead, FALSE) == TRUE)
@@ -294,31 +333,26 @@ public:
 	bool WriteMessage(char* Message)
 	{
 
-		if (WriteFile(hPipe, Message, strlen(Message), NULL, 0) == 0)
+		if (WriteFile(hPipe, Message, strlen(Message), NULL, &Overl) == 0)
 			return false;
 
 		return true;
 	}
 
-
-	void set_waiting(unsigned delay, char* mess_for_sending) {
+	void set_waiting(l_p* account) {
 		this->PipeState = PIPE_WAIT_SENDING;
-		this->delay = delay;
-		*this->message_for_sending = *mess_for_sending;
+		this->account = account;
 	}
 	
+	bool ready_to_send() {
 
-	bool send_if_ready() {
+		if (!arrival_time || !account)
+			return true;
 
-		if (!arrival_time)
-			return false;
-
-		if (GetTickCount() - arrival_time > delay) {
-			WriteMessage(message_for_sending);
+		if (GetTickCount() - arrival_time > account->delay) {
 
 			arrival_time = 0;
-			delay = 0;
-			*message_for_sending = { 0 };
+			account = NULL;
 			return true;
 		}
 		return false;

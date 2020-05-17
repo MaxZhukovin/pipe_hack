@@ -9,6 +9,7 @@
 #include <list>
 #include "iostream"
 #include "list_maker.h"
+#include <cmath>  
 #define	NELEM	3
 
 using namespace std;
@@ -27,38 +28,35 @@ public:
 	}
 
 	//return delay + mess_for_sending
-	unsigned check_account(char* input_l_p, char* mess_for_sending)
+	bool check_account(string &input, l_p* &account)
 	{
 
-		unsigned delay;
-		switch (password_is_ok(input_l_p, delay))
+		switch (password_is_ok(input, account))
 		{
 		case WRONG_PASSWORD:
 			//std::cout << "wrong password -> " << input_l_p << endl;
-			*mess_for_sending = '0';
-			break;
+			return 0;
 
 		case WRONG_LOGIN:
 			//std::cout << "wrong login -> " << input_l_p << endl;
-			*mess_for_sending = '2';
-			break;
+			return 0;
 
 		case OK_PASSWORD:
 			//std::cout << "password is ok -> " << input_l_p << endl;
-			*mess_for_sending = '1';	
-			break;
+			return 1;
+
 		}
 
 		
 
 		
-		return delay;
+		return 0;
 	}
 
 
 private:
 
-	int password_is_ok(char* input_l_p, unsigned &delay) {
+	int password_is_ok(string &input_l_p, l_p* &account) {
 
 		string input_login, input_password;
 		get_lp(input_l_p, input_login, input_password);
@@ -68,46 +66,61 @@ private:
 			if (i.Login == input_login) {
 			
 				if (i.Password == input_password) {
-					delay = i.delay;
 					i.delay = 0;
+
+					account = &(*i);
 					return OK_PASSWORD;
 				}
 				else {
-					//wrong password
-					delay = compute_delay(i.delay);
-					i.delay = delay;
+
+					account = &(*i);
+
+					i.delay = compute_delay(i.delay);
+
+					
 					return WRONG_PASSWORD;
 				}
 			}
 	
 		}
-
-		//wrong login
-		delay = 1000;
 		return WRONG_LOGIN;
 	}
 
-
 	//parsing
-	bool get_lp(char* str, string &login, string &password) {
+	bool get_lp(string &str, string &login, string &password) {
 
-
-		std::string s = str;
 
 		size_t pos = 0;
-		pos = s.find(":");
-		login = s.substr(0, pos);
-		password = s.substr(pos+1, s.length());
+		pos = str.find(":");
+		login = str.substr(0, pos);
+		password = str.substr(pos+1, str.length());
 
 
 		return true;
 	}
 
 	unsigned compute_delay(unsigned delay) {
+				   //10	  20	30     35	 40
+		int cur[] = {100, 600,	1600,  2500, 3000	};
+		int add[] = {10,  50,   100,   180,	 100	};
 
-		return delay+1000;
+		if (delay < cur[0])
+			return delay + add[0];
+
+		if (delay < cur[1])
+			return delay + add[1];
+		
+		if (delay < cur[2])
+			return delay + add[2];
+	
+		if (delay < cur[3])
+			return delay + add[3];
+
+		if (delay < cur[4])
+			return delay + add[4];
+
+		return 3000;
 	}
-
 
 };
 #endif
