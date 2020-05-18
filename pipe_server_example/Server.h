@@ -10,6 +10,13 @@
 
 #define MAX_PIPE_INST	2
 
+#define WAITING_IF_PROTECTED_MODE 100
+
+#define MESS_IF_OK_ACCOUNT	"1"
+#define MESS_IF_WRONG_LOGIN  "2"
+#define MESS_IF_WRONG_PASSWORD	"0"
+
+
 class server {
 
 private:
@@ -26,6 +33,7 @@ private:
 
 	bool protected_mode;
 
+	String inputMessage[MAX_PIPE_INST];
 public:
 
 	server(list<l_p> &input_list, bool protected_mode):
@@ -77,7 +85,10 @@ public:
 
 		unsigned waiting_for_connect = INFINITE;
 		if (protected_mode)
-			waiting_for_connect = 100;
+			waiting_for_connect = WAITING_IF_PROTECTED_MODE;
+
+
+
 
 		do {
 
@@ -133,31 +144,37 @@ private:
 		if (Pipes[PipeNumber].GetOperState() == PIPE_JUST_CONNECTED) 
 			PipesConnect++;
 
-		string inputMessage;
-
-		if (!Pipes[PipeNumber].ReadMessage(inputMessage)) 
+		if (!Pipes[PipeNumber].ReadMessage(inputMessage[PipeNumber]))
 			return false;
 
-		if (Pipes[PipeNumber].GetOperState() != PIPE_READ_SUCCESS)
-			return false;
-			
 
-		l_p* account = NULL;
-		bool res = processing.check_account(inputMessage, account);
 
-		if (!res)
-			return process_wrong_account(account, PipeNumber);
-				
-		return send((char*)"1", PipeNumber);
-		
+		switch (Pipes[PipeNumber].GetOperState()) {
+
+		case PIPE_READ_PART:
+			Pipes[PipeNumber].ReadMessage(inputMessage[PipeNumber]);
+			break;
+
+		case PIPE_READ_SUCCESS:
+
+			l_p* account = NULL;
+			bool res = processing.check_account(inputMessage[PipeNumber], account);
+
+			if (!res)
+				return process_wrong_account(account, PipeNumber);
+
+			return send(MESS_IF_OK_ACCOUNT, PipeNumber);
+		}
+
+		return false;
 	}
 
 	bool process_wrong_account(l_p* account, unsigned PipeNumber) {
 		if(!account)
-			return send((char*)"2", PipeNumber);
+			return send(MESS_IF_WRONG_LOGIN, PipeNumber);
 
 		if (!protected_mode) {
-			return send((char*)"0", PipeNumber);
+			return send(MESS_IF_WRONG_PASSWORD, PipeNumber);
 		}
 
 		//set waiting (for protected_mode)
@@ -166,7 +183,7 @@ private:
 		return true;
 	}
 
-	bool send(char* message, unsigned PipeNumber) {
+	bool send(String message, unsigned PipeNumber) {
 		if (!Pipes[PipeNumber].WriteMessage(message))
 			return false;
 
@@ -193,7 +210,7 @@ private:
 				continue;
 
 			if (Pipes[i].ready_to_send()) {
-				send((char*)"0", i);
+				send(MESS_IF_WRONG_PASSWORD, i);
 				pipe_disconnect(i);
 			}
 

@@ -31,6 +31,7 @@ int main()
 
 	char PIPE_NAME[] = "\\\\.\\pipe\\pipe_example";
 	char file_name[] = "C:\\Users\\HP\\Desktop\\l_p.txt";
+
 	SetConsoleOutputCP(1251);
 
 	list<l_p> list;

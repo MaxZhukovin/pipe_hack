@@ -28,7 +28,7 @@ public:
 	}
 
 	//return delay + mess_for_sending
-	bool check_account(string &input, l_p* &account)
+	bool check_account(String &input, l_p* &account)
 	{
 
 		switch (password_is_ok(input, account))
@@ -56,9 +56,9 @@ public:
 
 private:
 
-	int password_is_ok(string &input_l_p, l_p* &account) {
+	int password_is_ok(String &input_l_p, l_p* &account) {
 
-		string input_login, input_password;
+		String input_login, input_password;
 		get_lp(input_l_p, input_login, input_password);
 
 		for (auto &i : list_lp)
@@ -87,7 +87,7 @@ private:
 	}
 
 	//parsing
-	bool get_lp(string &str, string &login, string &password) {
+	bool get_lp(String &str, String &login, String &password) {
 
 
 		size_t pos = 0;
@@ -100,24 +100,17 @@ private:
 	}
 
 	unsigned compute_delay(unsigned delay) {
+
 				   //10	  20	30     35	 40
 		int cur[] = {100, 600,	1600,  2500, 3000	};
 		int add[] = {10,  50,   100,   180,	 100	};
 
-		if (delay < cur[0])
-			return delay + add[0];
-
-		if (delay < cur[1])
-			return delay + add[1];
+		int size = sizeof(cur) / sizeof(*cur);
+		for (int i = 0; i < size; i++){
 		
-		if (delay < cur[2])
-			return delay + add[2];
-	
-		if (delay < cur[3])
-			return delay + add[3];
-
-		if (delay < cur[4])
-			return delay + add[4];
+			if (delay < cur[i])
+				return delay + add[i];
+		}
 
 		return 3000;
 	}

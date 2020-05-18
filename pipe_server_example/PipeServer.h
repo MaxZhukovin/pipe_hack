@@ -1,3 +1,9 @@
+#ifndef UNICODE  
+typedef std::string String;
+#else
+typedef std::wstring String;
+#endif
+
 #ifndef PIPE_SERVER_INCLUDE
 #define PIPE_SERVER_INCLUDE
 
@@ -19,7 +25,7 @@
 #define DEF_BUF_SIZE				4096
 #define DEF_WAIT_TIME				20000
 
-#define buf_size					4096
+#define BUF_SIZE					4096
 
 //------------------------------------------------------------------
 
@@ -36,7 +42,7 @@ private:
 	//-----------------------
 	bool fPendingIOComplete;
 	bool CanCloseFlag;
-
+	DWORD waiting_bytes;
 	//-----------------------
 	DWORD PipeCurOperState;
 
@@ -92,6 +98,8 @@ public:
 		Overl.hEvent = NULL;
 		CanCloseFlag = false;
 		pSD = NULL;
+
+		waiting_bytes = 0;
 
 		arrival_time = 0;
 		account = NULL;
@@ -218,16 +226,15 @@ public:
 	}
 	
 	//-------------------------------------------------------------
-	bool ReadMessage(string &Message)
+	bool ReadMessage(String &Message)
 	{
 
 		if (IsOpen())
 		{
 
 			if (get_message(Message)){
-				CanCloseFlag = true;
 
-				PipeCurOperState = PIPE_READ_SUCCESS; 
+				CanCloseFlag = true;			
 				fPendingIOComplete = false;
 				arrival_time = GetTickCount();
 
@@ -240,44 +247,42 @@ public:
 		return false;
 	}
 private:
-	bool get_message(string &msg) {
+
+
+	bool get_message(String &msg) {
 
 		
 		DWORD read_bytes = 0;
-		char input[buf_size + 5] = {0}; //with zero symbol
+		TCHAR input[BUF_SIZE +1] = {0}; //with zero symbol
 
-		if (ReadFile(hPipe, input, buf_size + 4, &read_bytes, &Overl) != TRUE)
+		if (ReadFile(hPipe, input, BUF_SIZE, &read_bytes, &Overl) != TRUE)
 			return false;
 
-		int mess_size = int((unsigned char)(input[0])  |
-							(unsigned char)(input[1]) << 8 |
-							(unsigned char)(input[2]) << 16 |
-							(unsigned char)(input[3]) <<24);
-		
-		//---------------------------------------
-
-		msg = input+4; //without length
-
-		if (mess_size + 4 <= read_bytes)
+		if (PipeCurOperState != PIPE_READ_PART)
+		{ 
+			unsigned mess_size = *(unsigned*)input;
+			if (mess_size + 4  > BUF_SIZE)
+			{
+				this->waiting_bytes = mess_size + 4 - BUF_SIZE;
+				PipeCurOperState = PIPE_READ_PART;
+			}else
+				PipeCurOperState = PIPE_READ_SUCCESS;
+			
+			msg += input + 4; //without length	
 			return true;
-
-
-		//if read part
-		while (read_bytes < mess_size + 4) {
-
-			*input = { 0 };
-			DWORD next_bytes = 0;
-			if (ReadFile(hPipe, input, mess_size + 4 - read_bytes, &next_bytes, &Overl) != TRUE)
-				return false;
-
-			read_bytes += next_bytes;
-			msg += input;
 		}
-	
 
+		if (BUF_SIZE >= waiting_bytes) {
+			waiting_bytes = 0;
+			PipeCurOperState = PIPE_READ_SUCCESS;
+		}
+		else
+			this->waiting_bytes -= BUF_SIZE;
+
+
+		msg += input;
 		return true;
 	}
-
 
 
 public:
@@ -330,10 +335,10 @@ public:
 	}
 
 	//-------------------------------------------------------------
-	bool WriteMessage(char* Message)
+	bool WriteMessage(String Message)
 	{
 
-		if (WriteFile(hPipe, Message, strlen(Message), NULL, &Overl) == 0)
+		if (WriteFile(hPipe, Message.c_str(), Message.length(), NULL, &Overl) == 0)
 			return false;
 
 		return true;
